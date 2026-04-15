@@ -1,0 +1,25 @@
+# Ignore specific project folders
+Compare/
+Dados/
+
+# MATLAB
+*.asv
+*.m~
+slprj/
+codegen/
+*.mex*
+*.mlappinstall
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
