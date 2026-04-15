@@ -2,8 +2,8 @@ clc; clear; %close all;
 rng(879797);
 %% ======== Config ========
 PROBLEM_ID =1;
-SAVE_RESULTS = true;
-SAVENAME="LMI";
+SAVE_RESULTS = false;
+SAVENAME="RLQR";
 SHOW_ANIMATION = false;   % true/false para ligar/desligar
 ANIM_PAUSE_S = 1/144;      % pausa entre frames
 RUN_FIXED_GAIN=false;
@@ -12,9 +12,9 @@ PLOTS=true;
 
    
 %Applied Control
-LQRONLINE=false;
+LQRONLINE=true;
 LQROFFLINE=false;
-LMI=true;
+LMI=false;
 consenso2=false;
 
 %% ======== Dados via banco unificado ========
@@ -161,7 +161,7 @@ for k = 1:T
         for i = 1:nagent
             if LQRONLINE
             Q=delta^2*Fk'*P_online{i}*Gk*((R+Gk'*P_online{i}*Gk)^(-1))*Gk'*P_online{i}*Fk+Qx; 
-            [P_online{i}, K_now] = Recursive_RLQR_Norma( ...
+            [P_online{i}, K_now] = Recursive_RLQR_Pol( ...
                 1, mu, alfa, ninput, nstate, nuncertain, ...
                 Fk, Gk, Q, R, Hk, Ef, EGk, P_online{i},c);
                 aux_gain=Lcal(i,i);
