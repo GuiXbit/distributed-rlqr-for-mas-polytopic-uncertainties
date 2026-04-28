@@ -1,19 +1,18 @@
-function DELTA =CalcDelta(s,l,opts,k)
+function DELTA =CalcDelta(V,opts,k)
     if nargin < 3 || isempty(opts)
         opts = "default";
     end
     
     switch lower(string(opts))
         case "default"
-            DELTA = (2*rand(s,l) - 1)*0.5;
+            DELTA = rand(1,V)/V; 
         case "sin"
-            DELTA = sin(k*pi/4) * eye(s,l);  % Random matrix in [-0.5, 0.5]
-       case "sinrand"
-            DELTA = rand()*sin(k*pi/4) * eye(s,l);  % Random matrix in [-0.5, 0.5]
-       case "aaa"
-            DELTA = [sin(k*pi/4) 0
-            0 sin(k*pi/4)] ; % Random matrix in [-0.5, 0.5]
-         otherwise
-            error('Unknown option for CalcDelta: %s', opts);
+            DELTA=zeros(1,V);
+            for i=1:V
+                DELTA(i) = sin(k)/V;
+            end
+        case "max"
+            DELTA=zeros(1,V);
+            DELTA(randi(V))=1;
     end
 end

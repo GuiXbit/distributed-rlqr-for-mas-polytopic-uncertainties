@@ -28,10 +28,14 @@ p = problems{PROBLEM_ID};
 Fk = p.F;
 Gk=p.Gk;
 Lcal = p.Lcal;
-Ef=p.Ef;
-EGk=p.EGk;
-Hk=p.H;
+dF=p.dF;
+dG=p.dG;
 
+%converter
+for i =1:size(dF,2)
+    Nf(:,:,i)=dF{i};
+    Ng(:,:,i)=dG{i};
+end
 
 nagent = size(Lcal,1);
 nstate = size(Fk,1);
@@ -50,16 +54,17 @@ Finst=Finst(abs(Finst) > 1);
 rest2 = 1/abs(prod(Finst));
 fprintf('Restrição de delta: %.4g < delta < %.4g\n', rest1, rest2);
 delta=0.9;
+
+
 %% ======== Parametros RLQR (online) ========
 mu = 1e12;
-alfa=0.01;
+beta=155;
 InVal=1;
 Q = eye(nstate); 
-
-Q=diag([1 1]);
 Qx=Q;
 R = eye(ninput)*InVal;
-%calculo de C seguindo o artigo ;
+%nº de vertiices 
+V=size(Nf,3);
 
 %% ======== inicialização ========
 T = p.T;
@@ -71,9 +76,6 @@ for i = 1:nagent
     K_last{i} = zeros(size(Gk,2), nstate);
 end
 
-s = size(Hk, 2);
-l1 = size(Ef, 1);
-l2 = size(EGk, 1);
 normalize_uncertainty = @(M) M / max(1, norm(M, 2));
 
 eigLNS=eig(Lcal); 
@@ -115,37 +117,37 @@ lam = lam(abs(lam) > 1e-12);
 
 maxeigLNS=max(abs(lam));
 mineigLNS=min(abs(eigLNS));
-c=       1;
-aux_gain=1;
-lambda=(1 + alfa) * norm( mu * Hk' * Hk );
-aux=Gk*(R^(-1))*EGk'*(lambda^(-1)*eye(size(EGk,1))+EGk*(R^(-1))*EGk')^(-1)*Ef;
-Calf=Fk-aux;
-Finst= eig(Calf)
-Finst=Finst(abs(Finst) > 1);
-rest2 = 1/abs(prod(Finst));
-fprintf('Restrição de delta: %.4g < delta < %.4g\n', rest1, rest2);
+% aux_gain=1;
+% lambda=(1 + alfa) * norm( mu * Hk' * Hk );
+% aux=Gk*(R^(-1))*EGk'*(lambda^(-1)*eye(size(EGk,1))+EGk*(R^(-1))*EGk')^(-1)*Ef;
+% Calf=Fk-aux;
+% Finst= eig(Calf)
+% Finst=Finst(abs(Finst) > 1);
+% rest2 = 1/abs(prod(Finst));
+% fprintf('Restrição de delta: %.4g < delta < %.4g\n', rest1, rest2);
 %% ======== Loop de simulaÃ§Ã£o ========
 if ~UPDATE_UNCERTAINTY_EACH_K
-  DELTA=diag([0.35 0.25 0.15]);
-    deltaF = Hk * DELTA * Ef;
-    deltaG = Hk * DELTA * EGk;
-    DeltaG_base=DELTA;
-    DELTAF= DELTA;
+    AUX=[0.1 0.4 0.35 0.15];
+    deltaF=zeros(nstate);
+    deltaG=zeros(ninput);
+    for i=1:V
+        deltaF =deltaF+ AUX(i)*Nf(:,:,i);
+        deltaG =deltaG+ AUX(i)*Ng(:,:,i);
+    end
 end
 tic()
 for k = 1:T
     if (UPDATE_UNCERTAINTY_EACH_K && (mod(k,1)==0)|| k==1 && UPDATE_UNCERTAINTY_EACH_K)
-        DELTAF = CalcDelta(s, l1,"aaa",k)*0.8;  % Random matrix in [-0.5, 0.5]
-        DELTAF = normalize_uncertainty(DELTAF);
-        deltaF = Hk * DELTAF * Ef;         
-        DeltaG_base = CalcDelta(s, l2,"sinrand",k)*0;  % Random matrix in [-1, 1]
-        DeltaG_base = normalize_uncertainty(DeltaG_base);
-        DeltaG_base=DELTAF;
-        deltaG = Hk * DeltaG_base * EGk;
-        
+        AUX = CalcDelta(V,"max",k); 
+        deltaF=zeros(nstate);
+        deltaG=zeros(ninput);
+         for i=1:V
+            deltaF =deltaF+ AUX(i)*Nf(:,:,i);
+            deltaG =deltaG+ AUX(i)*Ng(:,:,i);
+         end
     end
-    deltaF_norm(k) = norm(DELTAF, 2);
-    deltaG_norm(k) = norm(DeltaG_base, 2);
+    deltaF_norm(k) = norm(deltaF);
+    deltaG_norm(k) = norm(deltaG);
     % --- malha aberta ---
     E = calc_Yk(x_open(:,:,k));
     eps_open(:,:,k) = E;
@@ -155,18 +157,15 @@ for k = 1:T
     % --- malha fechada (controle via epsilon) ---
     E = calc_Yk(x_cl(:,:,k));
     eps_cl(:,:,k) = E;
-    nuncertain = size(Ef,1);
-
     
         for i = 1:nagent
             if LQRONLINE
             Q=delta^2*Fk'*P_online{i}*Gk*((R+Gk'*P_online{i}*Gk)^(-1))*Gk'*P_online{i}*Fk+Qx; 
-            [P_online{i}, K_now] = Recursive_RLQR_Pol( ...
-                1, mu, alfa, ninput, nstate, nuncertain, ...
-                Fk, Gk, Q, R, Hk, Ef, EGk, P_online{i},c);
+            [P_online{i}, K_now] = Recursive_RLQR_Pol(1,mu,beta,nstate, ninput, V, Fk, Gk, Nf, Ng, Q, R, P_online{i});
                 aux_gain=Lcal(i,i);
             elseif LMI
-                 K_now=[   0.2132    0.5146];
+                 K_now=[   0.0844    -0.3098 0.1341];
+                 aux_gain=Lcal(i,i);
             elseif LQROFFLINE
                 K_now=[  0.0585   -0.2499 0.6732];
                 aux_gain=Lcal(i,i);
@@ -174,8 +173,8 @@ for k = 1:T
                 [P_online{i}, K_now] = Recursive_Lqr_Consensus(Fk, Gk, Q, R, P_online{i},delta);
                 aux_gain=Lcal(i,i);
             end
-            K_last{i} = K_now;             % ou K_now(1:ninput,:), se precisar
-            u_i = K_now * E(:,i);       % ou -Kself * E(:,i), dependendo da sua funcao
+            K_last{i} = -K_now;             % ou K_now(1:ninput,:), se precisar
+            u_i = -K_now * E(:,i);       % ou -Kself * E(:,i), dependendo da sua funcao
             u_cl(i,k) = norm(u_i,2);
             x_cl(:,i,k+1) = (Fk + deltaF) * x_cl(:,i,k) + (Gk + deltaG) * u_i/aux_gain;
             stage_cost_cl_agents(i,k) = E(:,i)' * Qx * E(:,i) + u_i' * R * u_i/aux_gain;

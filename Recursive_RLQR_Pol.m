@@ -1,4 +1,4 @@
-function [P_rlqr,K,L,Nf_hat,Ng_hat] = Recursive_RLQR_Pol(parms,mu,beta,n, m, q, v, F, G_rlqr, Nf, Ng, Q, R, P_rlqr)
+function [P_rlqr,K,L,Nf_hat,Ng_hat] = Recursive_RLQR_Pol(parms,mu,beta,n, m, v, F, G_rlqr, Nf, Ng, Q, R, P_rlqr)
 
     if mu <= 0
         error('Mu must be positive')
@@ -9,7 +9,6 @@ function [P_rlqr,K,L,Nf_hat,Ng_hat] = Recursive_RLQR_Pol(parms,mu,beta,n, m, q, 
     
     In = eye(n);
     Im = eye(m);
-    Il = eye(q);
     Iv = eye(v*n);
     
     lambda = (beta * mu)^(-1) * Iv; 
